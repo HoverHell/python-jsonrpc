@@ -3,29 +3,29 @@
 
 import os
 import sys
-import urllib2
-import StringIO
+from urllib.request import Request, urlopen, HTTPError
+from io import StringIO
 import base64
-import BaseHTTPServer
-import SocketServer
-import httplib
-import urllib
-import urlparse
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
+import http.client
+import urllib.request, urllib.parse, urllib.error
+import urllib.parse
 import gzip
 import tempfile
-import Cookie
+import http.cookies
 import logging
-import rpcrequest
-import rpcresponse
-import rpcerror
-import rpclib
-import rpcjson
-import tools
+from . import rpcrequest
+from . import rpcresponse
+from . import rpcerror
+from . import rpclib
+from . import rpcjson
+from . import tools
 
 
 # Workaround for Google App Engine
 if "APPENGINE_RUNTIME" in os.environ:
-    TmpFile = StringIO.StringIO
+    TmpFile = StringIO
     google_app_engine = True
 else:
     TmpFile = tempfile.SpooledTemporaryFile
@@ -81,10 +81,10 @@ def http_request(
 
     # Debug
     if debug:
-        logging.debug(u"Client-->Server: {json_string}".format(json_string = repr(json_string)))
+        logging.debug("Client-->Server: {json_string}".format(json_string = repr(json_string)))
 
     # Create request and add data
-    request = urllib2.Request(url)
+    request = Request(url)
 
     if gzipped:
         # Compress content (SpooledTemporaryFile to reduce memory usage)
@@ -94,46 +94,46 @@ def http_request(
         request.add_header("Content-Encoding", "gzip")
         request.add_header("Accept-Encoding", "gzip")
         spooled_file.seek(0)
-        request.add_data(spooled_file)
+        request.data = spooled_file
     else:
-        request.add_data(json_string)
+        request.data = json_string
 
     # Content Type
     request.add_header("Content-Type", content_type or "application/json")
 
     # Authorization
     if username:
-        base64string = base64.b64encode("%s:%s" % (username, password)).strip()
-        request.add_unredirected_header("Authorization", "Basic %s" % base64string)
+        base64string = base64.b64encode(("%s:%s" % (username, password)).encode('ascii')).strip()
+        request.add_unredirected_header("Authorization", "Basic %s" % (base64string.decode('ascii'),))
 
     # Cookies
     if cookies:
-        cookie = Cookie.SimpleCookie(cookies)
+        cookie = http.cookies.SimpleCookie(cookies)
         request.add_header("Cookie", cookie.output(header = "", sep = ";"))
 
     # Additional headers (overrides other headers)
     if additional_headers:
-        for key, val in additional_headers.items():
+        for key, val in list(additional_headers.items()):
             request.add_header(key, val)
 
     # Send request to server
     try:
         if ssl_context:
             try:
-                response = urllib2.urlopen(
+                response = urlopen(
                     request, timeout = timeout, context = ssl_context
                 )
             except TypeError as err:
-                if u"context" in unicode(err):
-                    raise NotImplementedError(u"SSL-Context needs Python >= 2.7.9")
+                if "context" in str(err):
+                    raise NotImplementedError("SSL-Context needs Python >= 2.7.9")
                 else:
                     raise
         else:
-            response = urllib2.urlopen(request, timeout = timeout)
-    except urllib2.HTTPError as err:
+            response = urlopen(request, timeout = timeout)
+    except HTTPError as err:
         if debug:
             retval = err.read()
-            logging.debug(u"Client<--Server: {retval}".format(retval = repr(retval)))
+            logging.debug("Client<--Server: {retval}".format(retval = repr(retval)))
         raise
 
     # Analyze response and return result
@@ -142,13 +142,13 @@ def http_request(
             response_file = tools.SpooledFile(source_file = response)
             if debug:
                 retval = tools.gunzip_file(response_file)
-                logging.debug(u"Client<--Server: {retval}".format(retval = repr(retval)))
+                logging.debug("Client<--Server: {retval}".format(retval = repr(retval)))
                 return retval
             return tools.gunzip_file(response_file)
         else:
             if debug:
                 retval = response.read()
-                logging.debug(u"Client<--Server: {retval}".format(retval = repr(retval)))
+                logging.debug("Client<--Server: {retval}".format(retval = repr(retval)))
                 return retval
             return response.read()
     finally:
@@ -238,7 +238,7 @@ class HttpClient(object):
         """
 
         # Create JSON-RPC-request
-        if isinstance(method, basestring):
+        if isinstance(method, str):
             request_json = rpcrequest.create_request_json(method, *args, **kwargs)
         else:
             assert not args and not kwargs
@@ -295,7 +295,7 @@ class HttpClient(object):
         methods = []
 
         # Create JSON-RPC-request (without ID)
-        if isinstance(method, basestring):
+        if isinstance(method, str):
             request_dict = rpcrequest.create_request_dict(method, *args, **kwargs)
             del request_dict["id"]
             methods.append(request_dict)
@@ -333,14 +333,14 @@ class HttpClient(object):
         return self._Method(http_client_instance = self, method = method)
 
 
-class ThreadingHttpServer(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
+class ThreadingHttpServer(ThreadingMixIn, HTTPServer):
     """
     Threading HTTP Server
     """
     pass
 
 
-class HttpRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler, rpclib.JsonRpc):
+class HttpRequestHandler(BaseHTTPRequestHandler, rpclib.JsonRpc):
     """
     HttpRequestHandler for JSON-RPC-Requests
 
@@ -398,13 +398,13 @@ class HttpRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler, rpclib.JsonRpc):
         """
 
         # Parse URL query
-        path, query_str = urllib.splitquery(self.path)
+        path, query_str = urllib.parse.splitquery(self.path)
         if not query_str:
             # Bad Request
-            return self.send_error(httplib.BAD_REQUEST)
+            return self.send_error(http.client.BAD_REQUEST)
 
         # Parse querystring
-        query = urlparse.parse_qs(query_str)
+        query = urllib.parse.parse_qs(query_str)
 
         # jsonrpc
         jsonrpc = query.get("jsonrpc")
@@ -422,7 +422,7 @@ class HttpRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler, rpclib.JsonRpc):
             method = method[0]
         else:
             # Bad Request
-            return self.send_error(httplib.BAD_REQUEST)
+            return self.send_error(http.client.BAD_REQUEST)
 
         # params
         args = []
@@ -447,7 +447,7 @@ class HttpRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler, rpclib.JsonRpc):
         response_json = self.call(request_json) or ""
 
         # Return result
-        self.send_response(code = httplib.OK)
+        self.send_response(code = http.client.OK)
         self.set_content_type(self.content_type)
         self.set_no_cache()
         self.set_content_length(len(response_json))
@@ -487,7 +487,7 @@ class HttpRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler, rpclib.JsonRpc):
         response_json = self.call(request_json) or ""
 
         # Return result
-        self.send_response(code = httplib.OK)
+        self.send_response(code = http.client.OK)
         self.set_content_type(self.content_type)
         self.set_no_cache()
 
@@ -526,7 +526,7 @@ def handle_cgi_request(methods = None):
     request_json = sys.stdin.read()
     if request_json:
         # POST
-        request_json = urlparse.unquote(request_json)
+        request_json = urllib.parse.unquote(request_json)
     else:
         # GET
         args = []
@@ -555,13 +555,10 @@ def handle_cgi_request(methods = None):
     response_json = rpclib.JsonRpc(methods = methods).call(request_json)
 
     # Return headers
-    print "Content-Type: application/json"
-    print "Cache-Control: no-cache"
-    print "Pragma: no-cache"
-    print
+    print("Content-Type: application/json")
+    print("Cache-Control: no-cache")
+    print("Pragma: no-cache")
+    print()
 
     # Return result
-    print response_json
-
-
-
+    print(response_json)

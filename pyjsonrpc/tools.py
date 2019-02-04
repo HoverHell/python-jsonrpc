@@ -3,13 +3,13 @@
 
 import os
 import gzip
-import StringIO
+import io
 import tempfile
 
 
 # Workaround for Google App Engine
 if "APPENGINE_RUNTIME" in os.environ:
-    TmpFile = StringIO.StringIO
+    TmpFile = io.StringIO
     google_app_engine = True
 else:
     TmpFile = tempfile.SpooledTemporaryFile
@@ -68,17 +68,17 @@ class SpooledFile(TmpFile):
 
 def safe_unicode(value):
 
-    if isinstance(value, unicode):
+    if isinstance(value, str):
         return value
 
     try:
-        return unicode(value)
+        return str(value)
     except UnicodeDecodeError:
         try:
-            return unicode(value, "utf-8")
+            return str(value, "utf-8")
         except UnicodeDecodeError:
-            return unicode(value, "iso-8859-15", "ignore")
-        except StandardError as err:
-            return unicode(repr(value))
-    except StandardError as err:
-        return unicode(repr(value))
+            return str(value, "iso-8859-15", "ignore")
+        except Exception as err:
+            return str(repr(value))
+    except Exception as err:
+        return str(repr(value))

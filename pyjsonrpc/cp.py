@@ -8,13 +8,13 @@ http://cherrypy.readthedocs.org/
 """
 
 import os
-import httplib
-import rpclib
-import rpcrequest
+import http.client
+from . import rpclib
+from . import rpcrequest
 import cherrypy
-import rpcjson
-import rpcerror
-import tools
+from . import rpcjson
+from . import rpcerror
+from . import tools
 
 # ToDo: Replace compress and decompress with faster methods
 from cherrypy.lib.encoding import compress
@@ -62,7 +62,7 @@ class CherryPyJsonRpc(rpclib.JsonRpc):
             method = kwargs.get("method")
             if not method:
                 # Bad Request
-                raise cherrypy.HTTPError(httplib.BAD_REQUEST)
+                raise cherrypy.HTTPError(http.client.BAD_REQUEST)
 
             # params
             _args = []

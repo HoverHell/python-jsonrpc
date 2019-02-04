@@ -4,8 +4,8 @@
 import sys
 import traceback
 import uuid
-import rpcerror
-import rpcjson
+from . import rpcerror
+from . import rpcjson
 try:
     from munch import Munch as Bunch
 except ImportError as err:
@@ -189,8 +189,8 @@ def create_request_dict(method, *args, **kwargs):
     else:
         params = args
     data = {
-        "method": unicode(method),
-        "id": unicode(uuid.uuid4()),
+        "method": str(method),
+        "id": str(uuid.uuid4()),
         "jsonrpc": "2.0",
         "params": params
     }

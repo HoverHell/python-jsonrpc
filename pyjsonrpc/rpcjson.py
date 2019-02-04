@@ -29,7 +29,7 @@ JsonParseError = ValueError
 
 # Default-Parameters for the *dumps*-function
 dumps_skipkeys = False
-dumps_ensure_ascii = True
+dumps_ensure_ascii = False
 dumps_check_circular = True
 dumps_allow_nan = True
 dumps_cls = None
@@ -41,7 +41,7 @@ dumps_sort_keys = False
 
 
 # Default-Parameters for the *loads*-function
-loads_encoding = None
+# loads_encoding = None
 loads_cls = None
 loads_object_hook = None
 loads_parse_float = None
@@ -57,7 +57,7 @@ def dumps(obj):
     Uses the predefined default settings.
     """
 
-    return _json.dumps(
+    result = _json.dumps(
         obj,
         skipkeys = dumps_skipkeys,
         ensure_ascii = dumps_ensure_ascii,
@@ -66,10 +66,12 @@ def dumps(obj):
         cls = dumps_cls,
         indent = dumps_indent,
         separators = dumps_separators,
-        encoding = dumps_encoding,
         default = dumps_default,
         sort_keys = dumps_sort_keys
     )
+    if dumps_encoding:
+        result = result.encode(dumps_encoding)
+    return result
 
 
 def loads(s):
@@ -81,7 +83,7 @@ def loads(s):
 
     # Named parameters for *loads*
     kwargs = {
-        "encoding": loads_encoding,
+        # "encoding": loads_encoding,
         "cls": loads_cls,
         "object_hook": loads_object_hook,
         "parse_float": loads_parse_float,
@@ -105,7 +107,7 @@ def date_time_decoder(obj):
         pyjsonrpc.rpcjson.loads_object_hook = pyjsonrpc.rpcjson.date_time_decoder
     """
 
-    if isinstance(obj, basestring):
+    if isinstance(obj, str):
 
         # Check min length and if "-" exists
         check_string = obj[0:10]
@@ -162,7 +164,7 @@ def date_time_decoder(obj):
             obj[index] = date_time_decoder(value)
 
     elif isinstance(obj, dict):
-        for key, value in obj.iteritems():
+        for key, value in obj.items():
             obj[key] = date_time_decoder(value)
 
     return obj

@@ -13,12 +13,11 @@ Python JSON-RPC Client Server Library With Additional Support for BaseHTTPServer
          :target: https://coveralls.io/github/gerold-penz/python-jsonrpc?branch=master
 
 
-==========
-Python 3.x
-==========
+========
+Python 3
+========
 
-This library is only for **Python 2.x**. You can not use it with Python 3.x. But I am learning Python 3.x now.
-Maybe it could be for Python 3.x in the future.
+This library is only for **Python 3.5+**.
 
 
 ============

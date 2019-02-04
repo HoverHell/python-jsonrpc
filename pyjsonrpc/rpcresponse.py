@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import rpcjson
+from . import rpcjson
 try:
     from munch import Munch as Bunch
 except ImportError as err:
     from bunch import Bunch
-from rpcerror import InternalError
+from .rpcerror import InternalError
 
 
 class Response(Bunch):
@@ -99,7 +99,7 @@ class Response(Bunch):
         error = response_dict.get("error")
         if error:
             result = None
-            if isinstance(error, basestring):
+            if isinstance(error, str):
                 # String Error
                 error = cls.Error(
                     code = InternalError.code,
